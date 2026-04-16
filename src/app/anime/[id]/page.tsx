@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAnimeById } from "@/lib/jikan";
+import { createClient } from "@/lib/supabase/server";
+import WatchlistButton, { type WatchlistEntry } from "@/components/WatchlistButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -22,6 +24,20 @@ export default async function AnimeDetailPage({ params }: Props) {
 
   const title = anime.title_english || anime.title;
   const imageUrl = anime.images.webp?.large_image_url || anime.images.jpg.large_image_url;
+
+  // Check watchlist status
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  let entry: WatchlistEntry | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("watchlist")
+      .select("status, user_rating, episodes_watched, total_episodes")
+      .eq("user_id", user.id)
+      .eq("mal_id", animeId)
+      .maybeSingle();
+    entry = data as WatchlistEntry | null;
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -60,6 +76,17 @@ export default async function AnimeDetailPage({ params }: Props) {
               <p className="text-zinc-500 text-sm mt-1">{anime.title}</p>
             )}
           </div>
+
+          {/* Watchlist */}
+          <WatchlistButton
+            malId={animeId}
+            title={title}
+            imageUrl={imageUrl}
+            score={anime.score}
+            totalEpisodes={anime.episodes ?? undefined}
+            initialEntry={entry}
+            isLoggedIn={!!user}
+          />
 
           {/* Stats */}
           <div className="flex flex-wrap gap-2">

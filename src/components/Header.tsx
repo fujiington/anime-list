@@ -1,7 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/server";
+import UserMenu from "@/components/UserMenu";
 
-export default function Header() {
+export default async function Header() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
@@ -23,6 +28,7 @@ export default function Header() {
           <Link href="/genres" className="hover:text-white transition-colors">Genres</Link>
           <Link href="/browse?status=airing" className="hover:text-white transition-colors">Airing</Link>
         </nav>
+        <UserMenu user={user} />
       </div>
     </header>
   );
