@@ -1,5 +1,26 @@
 const BASE_URL = "https://api.jikan.moe/v4";
 
+// ─── Rate-limit-aware fetch with automatic retry on 429 and 500 ─────────────
+async function jikanFetch(url: string, init?: RequestInit, retries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, init);
+    if (res.status === 429 && attempt < retries) {
+      // Jikan rate limit — honour Retry-After header
+      const wait = parseInt(res.headers.get("Retry-After") ?? "1", 10);
+      await new Promise((r) => setTimeout(r, (wait + 0.5) * 1000));
+      continue;
+    }
+    if (res.status === 500 && attempt < retries) {
+      // Transient MAL upstream error — wait 1 s and retry
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
+    return res;
+  }
+  throw new Error("jikanFetch: unexpected exit");
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ─── Client-side in-memory cache (no-op on server) ───────────────────────────
 type CacheEntry = { data: unknown; expiresAt: number };
 const _cache = new Map<string, CacheEntry>();
@@ -71,7 +92,7 @@ export async function searchAnime(
     page: String(page),
     limit: "20",
   });
-  const res = await fetch(`${BASE_URL}/anime?${params}`, {
+  const res = await jikanFetch(`${BASE_URL}/anime?${params}`, {
     next: { revalidate: 300 },
   });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
@@ -81,10 +102,9 @@ export async function searchAnime(
 export async function getTopAnime(page = 1): Promise<AnimeSearchResponse> {
   const params = new URLSearchParams({
     page: String(page),
-    limit: "20",
     sfw: "true",
   });
-  const res = await fetch(`${BASE_URL}/top/anime?${params}`, {
+  const res = await jikanFetch(`${BASE_URL}/top/anime?${params}`, {
     next: { revalidate: 3600 },
   });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
@@ -116,41 +136,80 @@ export interface BrowseOptions {
   genres?: number[];
 }
 
-export async function getSeasonNow(page = 1, limit = 20): Promise<AnimeSearchResponse> {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit), sfw: "true" });
-  const res = await fetch(`${BASE_URL}/seasons/now?${params}`, { next: { revalidate: 3600 } });
+export async function getSeasonNow(page = 1): Promise<AnimeSearchResponse> {
+  const params = new URLSearchParams({ page: String(page), sfw: "true" });
+  const res = await jikanFetch(`${BASE_URL}/seasons/now?${params}`, { next: { revalidate: 3600 } });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   return res.json();
 }
 
-export async function getSeasonUpcoming(page = 1, limit = 20): Promise<AnimeSearchResponse> {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit), sfw: "true" });
-  const res = await fetch(`${BASE_URL}/seasons/upcoming?${params}`, { next: { revalidate: 3600 } });
+export async function getSeasonUpcoming(page = 1): Promise<AnimeSearchResponse> {
+  const params = new URLSearchParams({ page: String(page), sfw: "true" });
+  const res = await jikanFetch(`${BASE_URL}/seasons/upcoming?${params}`, { next: { revalidate: 3600 } });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   return res.json();
 }
 
 export async function getGenres(): Promise<{ data: Genre[] }> {
-  const res = await fetch(`${BASE_URL}/genres/anime`, { next: { revalidate: 86400 } });
+  const res = await jikanFetch(`${BASE_URL}/genres/anime`, { next: { revalidate: 86400 } });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   return res.json();
 }
 
-export async function browseAnime(opts: BrowseOptions = {}): Promise<AnimeSearchResponse> {
-  const { query = "", page = 1, limit = 20, orderBy = "score", sort = "desc", status = "", type = "", genres = [] } = opts;
-  const params = new URLSearchParams({ page: String(page), limit: String(limit), sfw: "true", order_by: orderBy, sort });
-  if (query) params.set("q", query);
-  if (status) params.set("status", status);
-  if (type) params.set("type", type);
-  if (genres.length > 0) params.set("genres", genres.join(","));
+/**
+ * Orderings natively expressible via /top/anime's `filter` parameter.
+ * Anything outside this set requires the /anime endpoint.
+ */
+const TOP_ANIME_ORDERINGS = new Set(["score", "rank", "popularity", "favorites"]);
 
-  const cacheKey = `browse:${params.toString()}`;
+/** Maps status/orderBy to the /top/anime `filter` value. */
+function toTopFilter(status: string, orderBy: string): string | null {
+  if (status === "airing") return "airing";
+  if (status === "upcoming") return "upcoming";
+  if (orderBy === "popularity") return "bypopularity";
+  if (orderBy === "favorites") return "favorite";
+  return null; // default /top/anime order (by rank/score)
+}
+
+export async function browseAnime(opts: BrowseOptions = {}): Promise<AnimeSearchResponse> {
+  const { query = "", page = 1, orderBy = "score", sort = "desc", status = "", type = "", genres = [] } = opts;
+
+  const cacheKey = `browse:${query}|${page}|${orderBy}|${sort}|${status}|${type}|${genres.join(",")}`;
   const cached = _get<AnimeSearchResponse>(cacheKey);
   if (cached) return cached;
 
-  const res = await fetch(`${BASE_URL}/anime?${params}`, { next: { revalidate: 600 } });
-  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
-  const json: AnimeSearchResponse = await res.json();
+  let json: AnimeSearchResponse;
+
+  // Use /anime when:
+  //  • there is a text query or genre filter (richer search support)
+  //  • status is "complete" (/top/anime has no "complete" filter)
+  //  • orderBy value is not supported by /top/anime (start_date, members, episodes, …)
+  const useAnimeEndpoint =
+    Boolean(query) ||
+    genres.length > 0 ||
+    status === "complete" ||
+    !TOP_ANIME_ORDERINGS.has(orderBy);
+
+  if (useAnimeEndpoint) {
+    const params = new URLSearchParams({ page: String(page), limit: "25", sfw: "true", order_by: orderBy, sort });
+    if (query) params.set("q", query);
+    if (status) params.set("status", status);
+    if (type) params.set("type", type);
+    if (genres.length > 0) params.set("genres", genres.join(","));
+    const res = await jikanFetch(`${BASE_URL}/anime?${params}`, { next: { revalidate: 300 } });
+    if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+    json = await res.json();
+  } else {
+    // /top/anime — reliable for default browsing when no specific filter is needed
+    const params = new URLSearchParams({ page: String(page), limit: "25", sfw: "true" });
+    if (type) params.set("type", type);
+    const filter = toTopFilter(status, orderBy);
+    if (filter) params.set("filter", filter);
+    const res = await jikanFetch(`${BASE_URL}/top/anime?${params}`, { next: { revalidate: 600 } });
+    if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+    json = await res.json();
+  }
+
   _set(cacheKey, json, 5 * 60_000);
   return json;
 }
@@ -160,7 +219,7 @@ export async function getAnimeById(id: number): Promise<{ data: Anime }> {
   const cached = _get<{ data: Anime }>(cacheKey);
   if (cached) return cached;
 
-  const res = await fetch(`${BASE_URL}/anime/${id}/full`, {
+  const res = await jikanFetch(`${BASE_URL}/anime/${id}/full`, {
     next: { revalidate: 86400 },
   });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);

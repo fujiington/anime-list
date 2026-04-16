@@ -3,24 +3,40 @@ import AnimeRow from "@/components/AnimeRow";
 import WeeklyPickCard from "@/components/WeeklyPickCard";
 import HomeSearchBar from "@/components/HomeSearchBar";
 import { getSeasonNow, getSeasonUpcoming } from "@/lib/jikan";
+import type { Anime } from "@/lib/jikan";
 
 export const revalidate = 3600;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+function dedup<T extends { mal_id: number }>(arr: T[]): T[] {
+  const seen = new Set<number>();
+  return arr.filter((a) => (seen.has(a.mal_id) ? false : (seen.add(a.mal_id), true)));
+}
+
 export default async function HomePage() {
-  const [seasonRes, upcomingRes] = await Promise.allSettled([
-    getSeasonNow(1, 25),
-    getSeasonUpcoming(1, 12),
+  // Fetch page 1 of both in parallel, then page 2 of each sequentially to respect rate limits
+  const [seasonRes1, upcomingRes1] = await Promise.allSettled([
+    getSeasonNow(1),
+    getSeasonUpcoming(1),
   ]);
 
-  function dedup<T extends { mal_id: number }>(arr: T[]): T[] {
-    const seen = new Set<number>();
-    return arr.filter((a) => seen.has(a.mal_id) ? false : (seen.add(a.mal_id), true));
-  }
+  const seasonPage1: Anime[] = seasonRes1.status === "fulfilled" ? seasonRes1.value.data : [];
+  const upcomingPage1: Anime[] = upcomingRes1.status === "fulfilled" ? upcomingRes1.value.data : [];
 
-  const seasonRaw = dedup(seasonRes.status  === "fulfilled" ? seasonRes.value.data  : []);
-  const upcoming  = dedup(upcomingRes.status === "fulfilled" ? upcomingRes.value.data : []);
+  const hasMoreSeason = seasonRes1.status === "fulfilled" && seasonRes1.value.pagination.has_next_page;
+  const hasMoreUpcoming = upcomingRes1.status === "fulfilled" && upcomingRes1.value.pagination.has_next_page;
+
+  const seasonPage2: Anime[] = hasMoreSeason
+    ? await getSeasonNow(2).then((r) => r.data).catch(() => [])
+    : [];
+
+  const upcomingPage2: Anime[] = hasMoreUpcoming
+    ? await getSeasonUpcoming(2).then((r) => r.data).catch(() => [])
+    : [];
+
+  const seasonRaw = dedup([...seasonPage1, ...seasonPage2]);
+  const upcoming = dedup([...upcomingPage1, ...upcomingPage2]);
 
   const byScore = [...seasonRaw].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
@@ -30,11 +46,21 @@ export default async function HomePage() {
   const weekIdx = Math.floor(Date.now() / WEEK_MS) % Math.max(pool.length, 1);
   const weeklyPick = pool[weekIdx] ?? null;
 
-  const usedIds = new Set([...topFive.map((a) => a.mal_id), weeklyPick?.mal_id]);
+  // Keep track of all IDs already shown so rows don't overlap
+  const usedIds = new Set<number>([
+    ...topFive.map((a) => a.mal_id),
+    ...(weeklyPick ? [weeklyPick.mal_id] : []),
+  ]);
 
-  const airingRow = byScore.filter((a) => !usedIds.has(a.mal_id)).slice(0, 12);
+  const airingRow = byScore
+    .filter((a) => !usedIds.has(a.mal_id))
+    .slice(0, 20);
 
-  const seasonRow = seasonRaw.filter((a) => !usedIds.has(a.mal_id)).slice(0, 12);
+  airingRow.forEach((a) => usedIds.add(a.mal_id));
+
+  const seasonRow = seasonRaw
+    .filter((a) => !usedIds.has(a.mal_id))
+    .slice(0, 20);
 
   return (
     <div>
