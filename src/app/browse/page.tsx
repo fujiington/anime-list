@@ -1,11 +1,13 @@
 import { Suspense } from "react";
 import BrowseClient from "./BrowseClient";
 import AnimeGrid from "@/components/AnimeGrid";
+import { getSiteMode } from "@/lib/mode";
 
-export default function BrowsePage() {
+export default async function BrowsePage() {
+  const mode = await getSiteMode();
   return (
     <Suspense fallback={<BrowseFallback />}>
-      <BrowseClient />
+      <BrowseClient mode={mode} />
     </Suspense>
   );
 }

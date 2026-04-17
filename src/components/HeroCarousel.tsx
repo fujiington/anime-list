@@ -61,8 +61,14 @@ export default function HeroCarousel({ slides }: { slides: Anime[] }) {
       onTouchEnd={onTouchEnd}
     >
 
-      {/* ── background images: all mounted, cross-fade ── */}
+      {/* ── background images: only active ±1 mounted to avoid loading all at once ── */}
       {slides.map((s, i) => {
+        // Circular distance — only mount adjacent slides
+        const dist = Math.min(
+          Math.abs(i - active),
+          slides.length - Math.abs(i - active)
+        );
+        if (dist > 1) return null;
         const url = s.images.webp?.large_image_url || s.images.jpg.large_image_url;
         return (
           <div
@@ -77,7 +83,7 @@ export default function HeroCarousel({ slides }: { slides: Anime[] }) {
               fill
               className="object-cover brightness-[0.45]"
               unoptimized
-              priority={i < 2}
+              priority={i === active}
             />
           </div>
         );
@@ -95,7 +101,7 @@ export default function HeroCarousel({ slides }: { slides: Anime[] }) {
         <div className="flex items-end gap-6 max-w-3xl w-full">
           {/* poster */}
           <div className="block relative w-24 sm:w-36 aspect-[3/4] rounded-lg overflow-hidden border border-white/10 shrink-0 shadow-2xl">
-            <Image src={imageUrl} alt={title} fill className="object-cover" unoptimized />
+            <Image src={imageUrl} alt={title} fill className="object-cover" unoptimized priority />
           </div>
 
           {/* info */}

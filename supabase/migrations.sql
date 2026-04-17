@@ -83,3 +83,38 @@ begin
     $policy$;
   end if;
 end $$;
+
+-- ── 3. Manga reading list ───────────────────────────────────────────────────────
+create table if not exists public.manga_list (
+  id              uuid        default gen_random_uuid() primary key,
+  user_id         uuid        references auth.users(id) on delete cascade not null,
+  mal_id          integer     not null,
+  title           text        not null,
+  image_url       text,
+  score           numeric,
+  status          text        not null default 'plan_to_read'
+                    check (status in ('reading','completed','plan_to_read','on_hold','dropped')),
+  user_rating     integer
+                    check (user_rating is null or (user_rating >= 1 and user_rating <= 10)),
+  chapters_read   integer     not null default 0,
+  total_chapters  integer,
+  added_at        timestamptz default now() not null,
+  constraint manga_list_user_manga unique (user_id, mal_id)
+);
+
+alter table public.manga_list enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='manga_list' and policyname='Users can read their own manga list') then
+    create policy "Users can read their own manga list" on public.manga_list for select using (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='manga_list' and policyname='Users can insert into their own manga list') then
+    create policy "Users can insert into their own manga list" on public.manga_list for insert with check (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='manga_list' and policyname='Users can update their own manga list') then
+    create policy "Users can update their own manga list" on public.manga_list for update using (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='manga_list' and policyname='Users can delete from their own manga list') then
+    create policy "Users can delete from their own manga list" on public.manga_list for delete using (auth.uid() = user_id);
+  end if;
+end $$;

@@ -8,6 +8,7 @@ interface SortBarProps {
   genre?: string;
   genreOptions?: { value: string; label: string }[];
   onChange: (key: string, value: string) => void;
+  mode?: "anime" | "manga";
 }
 
 const ORDER_OPTIONS = [
@@ -20,11 +21,29 @@ const ORDER_OPTIONS = [
   { value: "episodes", label: "Episodes" },
 ];
 
+const MANGA_ORDER_OPTIONS = [
+  { value: "score", label: "Score" },
+  { value: "popularity", label: "Popularity" },
+  { value: "rank", label: "Rank" },
+  { value: "chapters", label: "Chapters" },
+  { value: "volumes", label: "Volumes" },
+  { value: "members", label: "Most Members" },
+  { value: "favorites", label: "Most Favorited" },
+];
+
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
   { value: "airing", label: "Airing" },
   { value: "upcoming", label: "Upcoming" },
   { value: "complete", label: "Finished" },
+];
+
+const MANGA_STATUS_OPTIONS = [
+  { value: "", label: "All Status" },
+  { value: "publishing", label: "Publishing" },
+  { value: "complete", label: "Finished" },
+  { value: "discontinued", label: "Discontinued" },
+  { value: "hiatus", label: "On Hiatus" },
 ];
 
 const TYPE_OPTIONS = [
@@ -36,16 +55,30 @@ const TYPE_OPTIONS = [
   { value: "ona", label: "ONA" },
 ];
 
+const MANGA_TYPE_OPTIONS = [
+  { value: "", label: "All Types" },
+  { value: "manga", label: "Manga" },
+  { value: "manhwa", label: "Manhwa" },
+  { value: "manhua", label: "Manhua" },
+  { value: "novel", label: "Novel" },
+  { value: "light_novel", label: "Light Novel" },
+  { value: "one_shot", label: "One-Shot" },
+];
+
 const selectClass =
   "bg-zinc-900 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-red-800 cursor-pointer hover:border-zinc-600 transition-colors";
 
-export default function SortBar({ orderBy, sort, status, type, genre, genreOptions, onChange }: SortBarProps) {
+export default function SortBar({ orderBy, sort, status, type, genre, genreOptions, onChange, mode = "anime" }: SortBarProps) {
+  const orderOpts  = mode === "manga" ? MANGA_ORDER_OPTIONS  : ORDER_OPTIONS;
+  const statusOpts = mode === "manga" ? MANGA_STATUS_OPTIONS : STATUS_OPTIONS;
+  const typeOpts   = mode === "manga" ? MANGA_TYPE_OPTIONS   : TYPE_OPTIONS;
+
   return (
     <div className="flex flex-wrap gap-2 items-center">
       <span className="text-zinc-600 text-xs uppercase tracking-wider mr-1">Sort</span>
 
       <select value={orderBy} onChange={(e) => onChange("orderBy", e.target.value)} className={selectClass}>
-        {ORDER_OPTIONS.map((o) => (
+        {orderOpts.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
@@ -59,13 +92,13 @@ export default function SortBar({ orderBy, sort, status, type, genre, genreOptio
       <span className="text-zinc-600 text-xs uppercase tracking-wider">Filter</span>
 
       <select value={status} onChange={(e) => onChange("status", e.target.value)} className={selectClass}>
-        {STATUS_OPTIONS.map((o) => (
+        {statusOpts.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
 
       <select value={type} onChange={(e) => onChange("type", e.target.value)} className={selectClass}>
-        {TYPE_OPTIONS.map((o) => (
+        {typeOpts.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>

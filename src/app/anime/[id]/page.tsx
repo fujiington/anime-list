@@ -83,7 +83,7 @@ export default async function AnimeDetailPage({ params }: Props) {
             title={title}
             imageUrl={imageUrl}
             score={anime.score}
-            totalEpisodes={anime.episodes ?? undefined}
+            totalEpisodes={anime.episodes ?? null}
             initialEntry={entry}
             isLoggedIn={!!user}
           />

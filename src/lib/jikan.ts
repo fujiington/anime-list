@@ -156,6 +156,12 @@ export async function getGenres(): Promise<{ data: Genre[] }> {
   return res.json();
 }
 
+export async function getMangaGenres(): Promise<{ data: Genre[] }> {
+  const res = await jikanFetch(`${BASE_URL}/genres/manga`, { next: { revalidate: 86400 } });
+  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+  return res.json();
+}
+
 /**
  * Orderings natively expressible via /top/anime's `filter` parameter.
  * Anything outside this set requires the /anime endpoint.
@@ -226,4 +232,105 @@ export async function getAnimeById(id: number): Promise<{ data: Anime }> {
   const json: { data: Anime } = await res.json();
   _set(cacheKey, json, 30 * 60_000);
   return json;
+}
+
+// ─── Manga ────────────────────────────────────────────────────────────────────
+
+export interface Manga {
+  mal_id: number;
+  title: string;
+  title_english: string | null;
+  synopsis: string | null;
+  images: AnimeImage;
+  score: number | null;
+  scored_by: number | null;
+  rank: number | null;
+  chapters: number | null;
+  volumes: number | null;
+  status: string;
+  published: { string: string };
+  genres: AnimeGenre[];
+  authors: { mal_id: number; name: string }[];
+  type: string | null;
+  popularity: number | null;
+  members: number | null;
+}
+
+export interface MangaSearchResponse {
+  data: Manga[];
+  pagination: PaginationData;
+}
+
+const TOP_MANGA_ORDERINGS = new Set(["score", "rank", "popularity", "favorites"]);
+
+function toTopMangaFilter(orderBy: string): string | null {
+  if (orderBy === "popularity") return "bypopularity";
+  if (orderBy === "favorites") return "favorite";
+  return null;
+}
+
+export type MangaOrderBy =
+  | "mal_id" | "title" | "start_date" | "end_date" | "chapters"
+  | "volumes" | "score" | "scored_by" | "rank" | "popularity" | "members" | "favorites";
+
+export interface MangaBrowseOptions {
+  query?: string;
+  page?: number;
+  limit?: number;
+  orderBy?: MangaOrderBy;
+  sort?: SortOrder;
+  genres?: number[];
+  type?: string;
+}
+
+export async function browseManga(opts: MangaBrowseOptions = {}): Promise<MangaSearchResponse> {
+  const { query = "", page = 1, orderBy = "score", sort = "desc", genres = [], type = "" } = opts;
+
+  const cacheKey = `manga:browse:${query}|${page}|${orderBy}|${sort}|${type}|${genres.join(",")}`;
+  const cached = _get<MangaSearchResponse>(cacheKey);
+  if (cached) return cached;
+
+  let json: MangaSearchResponse;
+
+  const useSearchEndpoint = Boolean(query) || genres.length > 0 || !TOP_MANGA_ORDERINGS.has(orderBy);
+
+  if (useSearchEndpoint) {
+    const params = new URLSearchParams({ page: String(page), limit: "25", sfw: "true", order_by: orderBy, sort });
+    if (query) params.set("q", query);
+    if (type) params.set("type", type);
+    if (genres.length > 0) params.set("genres", genres.join(","));
+    const res = await jikanFetch(`${BASE_URL}/manga?${params}`, { next: { revalidate: 300 } });
+    if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+    json = await res.json();
+  } else {
+    const params = new URLSearchParams({ page: String(page), limit: "25", sfw: "true" });
+    if (type) params.set("type", type);
+    const filter = toTopMangaFilter(orderBy);
+    if (filter) params.set("filter", filter);
+    const res = await jikanFetch(`${BASE_URL}/top/manga?${params}`, { next: { revalidate: 600 } });
+    if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+    json = await res.json();
+  }
+
+  _set(cacheKey, json, 5 * 60_000);
+  return json;
+}
+
+export async function getMangaById(id: number): Promise<{ data: Manga }> {
+  const cacheKey = `manga:${id}`;
+  const cached = _get<{ data: Manga }>(cacheKey);
+  if (cached) return cached;
+
+  const res = await jikanFetch(`${BASE_URL}/manga/${id}/full`, { next: { revalidate: 86400 } });
+  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+  const json: { data: Manga } = await res.json();
+  _set(cacheKey, json, 30 * 60_000);
+  return json;
+}
+
+export async function getTopManga(page = 1): Promise<MangaSearchResponse> {
+  const params = new URLSearchParams({ page: String(page), sfw: "true" });
+  const res = await jikanFetch(`${BASE_URL}/top/manga?${params}`, { next: { revalidate: 3600 } });
+  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+  return res.json();
 }

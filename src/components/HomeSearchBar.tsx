@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function HomeSearchBar() {
+export default function HomeSearchBar({ placeholder = "Search anime titles..." }: { placeholder?: string }) {
   const [query, setQuery] = useState("");
   const router = useRouter();
 
@@ -19,7 +19,7 @@ export default function HomeSearchBar() {
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search anime titles..."
+        placeholder={placeholder}
         className="w-full bg-zinc-900/80 border border-zinc-700 text-white placeholder-zinc-500 rounded-xl px-5 py-3.5 pr-28 focus:outline-none focus:border-red-800 transition-colors text-sm backdrop-blur-sm"
         autoComplete="off"
         spellCheck={false}

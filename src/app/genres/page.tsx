@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getGenres } from "@/lib/jikan";
+import { getGenres, getMangaGenres } from "@/lib/jikan";
+import { getSiteMode } from "@/lib/mode";
 
 export const revalidate = 86400;
 
@@ -17,20 +18,30 @@ const COLORS = [
   ["bg-teal-950",   "border-teal-900/40",   "text-teal-300"],
 ];
 
+const EXCLUDED_GENRES = new Set([
+  "Hentai", "Erotica", "Ecchi", "Gag Humor",
+  "Sexual Content", "Magical Sex Shift",
+]);
+
 export default async function GenresPage() {
+  const mode = await getSiteMode();
   let genres: { mal_id: number; name: string; count: number }[] = [];
   try {
-    const data = await getGenres();
-    genres = data.data.sort((a, b) => b.count - a.count);
+    const data = await (mode === "manga" ? getMangaGenres() : getGenres());
+    genres = data.data
+      .filter((g) => !EXCLUDED_GENRES.has(g.name))
+      .sort((a, b) => b.count - a.count);
   } catch {
     // show empty state
   }
+
+  const label = mode === "manga" ? "manga" : "anime";
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Genres</h1>
-        <p className="text-zinc-500 text-sm mt-1">Browse anime by genre</p>
+        <p className="text-zinc-500 text-sm mt-1">Browse {label} by genre</p>
       </div>
 
       {genres.length === 0 ? (
@@ -47,7 +58,7 @@ export default async function GenresPage() {
               >
                 <h3 className={`font-semibold text-sm text-white`}>{g.name}</h3>
                 <p className={`${accent} text-xs mt-1 opacity-70`}>
-                  {g.count.toLocaleString()} anime
+                  {g.count.toLocaleString()} {label}
                 </p>
               </Link>
             );
