@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAnimeById } from "@/lib/jikan";
+import { cachedGetAnimeById } from "@/lib/jikanCache";
 import { createClient } from "@/lib/supabase/server";
 import WatchlistButton, { type WatchlistEntry } from "@/components/WatchlistButton";
 
@@ -16,7 +16,7 @@ export default async function AnimeDetailPage({ params }: Props) {
 
   let anime;
   try {
-    const res = await getAnimeById(animeId);
+    const res = await cachedGetAnimeById(animeId);
     anime = res.data;
   } catch {
     notFound();

@@ -9,6 +9,16 @@ export default async function Header() {
   const { data: { user } } = await supabase.auth.getUser();
   const mode = await getSiteMode();
 
+  let avatarUrl: string | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
+    avatarUrl = profile?.avatar_url ?? null;
+  }
+
   return (
     <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
@@ -23,7 +33,7 @@ export default async function Header() {
             <Link href="/browse?status=publishing" className="hover:text-white transition-colors">Publishing</Link>
           )}
         </nav>
-        <UserMenu user={user} />
+        <UserMenu user={user} avatarUrl={avatarUrl} />
       </div>
     </header>
   );

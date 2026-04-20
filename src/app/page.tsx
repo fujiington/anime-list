@@ -1,9 +1,10 @@
-﻿import HeroCarousel from "@/components/HeroCarousel";
+﻿import { Suspense } from "react";
+import HeroCarousel from "@/components/HeroCarousel";
 import AnimeRow from "@/components/AnimeRow";
 import MangaRow from "@/components/MangaRow";
 import WeeklyPickCard from "@/components/WeeklyPickCard";
 import HomeSearchBar from "@/components/HomeSearchBar";
-import { getSeasonNow, getSeasonUpcoming, getTopManga, browseManga } from "@/lib/jikan";
+import { cachedGetSeasonNow, cachedGetSeasonUpcoming, cachedGetTopManga, cachedBrowseManga } from "@/lib/jikanCache";
 import { getSiteMode } from "@/lib/mode";
 import type { Anime, Manga } from "@/lib/jikan";
 
@@ -16,39 +17,44 @@ function dedup<T extends { mal_id: number }>(arr: T[]): T[] {
   return arr.filter((a) => (seen.has(a.mal_id) ? false : (seen.add(a.mal_id), true)));
 }
 
-export default async function HomePage() {
-  const mode = await getSiteMode();
-
-  if (mode === "manga") {
-    const [topRes, popularRes, manhwaRes] = await Promise.allSettled([
-      getTopManga(1),
-      browseManga({ orderBy: "popularity" }),
-      browseManga({ type: "manhwa", orderBy: "score" }),
-    ]);
-
-    const top: Manga[]     = topRes.status     === "fulfilled" ? topRes.value.data     : [];
-    const popular: Manga[] = popularRes.status === "fulfilled" ? popularRes.value.data : [];
-    const manhwa: Manga[]  = manhwaRes.status  === "fulfilled" ? manhwaRes.value.data  : [];
-
-    return (
-      <div>
-        <div className="flex flex-col items-center gap-3 mb-10">
-          <p className="text-zinc-500 text-sm">Search thousands of titles</p>
-          <HomeSearchBar placeholder="Search manga titles..." />
-        </div>
-        <MangaRow title="Top Rated Manga"  manga={top}     seeAllHref="/browse?orderBy=score" />
-        <MangaRow title="Most Popular"     manga={popular} seeAllHref="/browse?orderBy=popularity" />
-        <MangaRow title="Top Manhwa"       manga={manhwa}  seeAllHref="/browse?type=manhwa" />
+// ── Skeletons ──────────────────────────────────────────────────────────────
+function CardRowSkeleton() {
+  return (
+    <div className="space-y-3 mb-10">
+      <div className="h-5 w-40 bg-zinc-800 rounded animate-pulse" />
+      <div className="flex gap-3 overflow-hidden">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex-none w-32">
+            <div className="aspect-[3/4] bg-zinc-800 rounded-lg animate-pulse" />
+            <div className="mt-2 h-3 bg-zinc-800 rounded animate-pulse" />
+          </div>
+        ))}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  // ── Anime mode ─────────────────────────────────────────────────────────────
-  // All 3 in parallel — Jikan allows 3 req/s so no 429 risk.
+function AnimeHomeSkeleton() {
+  return (
+    <div>
+      <div className="-mx-4 -mt-6 mb-8 h-64 sm:h-96 bg-zinc-900 animate-pulse" />
+      <div className="flex flex-col items-center gap-3 mb-10">
+        <div className="h-4 w-44 bg-zinc-800 rounded animate-pulse" />
+        <div className="h-10 w-64 bg-zinc-800 rounded-full animate-pulse" />
+      </div>
+      <CardRowSkeleton />
+      <CardRowSkeleton />
+      <CardRowSkeleton />
+    </div>
+  );
+}
+
+// ── Data components (stream in after shell) ────────────────────────────────
+async function AnimeHomeData() {
   const [season1Res, season2Res, upcomingRes] = await Promise.allSettled([
-    getSeasonNow(1),
-    getSeasonNow(2),
-    getSeasonUpcoming(1),
+    cachedGetSeasonNow(1),
+    cachedGetSeasonNow(2),
+    cachedGetSeasonUpcoming(1),
   ]);
 
   const seasonPage1: Anime[] = season1Res.status === "fulfilled" ? season1Res.value.data : [];
@@ -91,5 +97,50 @@ export default async function HomePage() {
       <AnimeRow title="New This Season"   anime={seasonRow} seeAllHref="/browse?orderBy=start_date&sort=desc" />
       <AnimeRow title="Upcoming Releases" anime={upcoming}  seeAllHref="/browse?status=upcoming" />
     </div>
+  );
+}
+
+async function MangaHomeData() {
+  const [topRes, popularRes, manhwaRes] = await Promise.allSettled([
+    cachedGetTopManga(1),
+    cachedBrowseManga({ orderBy: "popularity" }),
+    cachedBrowseManga({ type: "manhwa", orderBy: "score" }),
+  ]);
+
+  const top: Manga[]     = topRes.status     === "fulfilled" ? topRes.value.data     : [];
+  const popular: Manga[] = popularRes.status === "fulfilled" ? popularRes.value.data : [];
+  const manhwa: Manga[]  = manhwaRes.status  === "fulfilled" ? manhwaRes.value.data  : [];
+
+  return (
+    <>
+      <MangaRow title="Top Rated Manga" manga={top}     seeAllHref="/browse?orderBy=score" />
+      <MangaRow title="Most Popular"    manga={popular} seeAllHref="/browse?orderBy=popularity" />
+      <MangaRow title="Top Manhwa"      manga={manhwa}  seeAllHref="/browse?type=manhwa" />
+    </>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────
+export default async function HomePage() {
+  const mode = await getSiteMode();
+
+  if (mode === "manga") {
+    return (
+      <div>
+        <div className="flex flex-col items-center gap-3 mb-10">
+          <p className="text-zinc-500 text-sm">Search thousands of titles</p>
+          <HomeSearchBar placeholder="Search manga titles..." />
+        </div>
+        <Suspense fallback={<><CardRowSkeleton /><CardRowSkeleton /><CardRowSkeleton /></>}>
+          <MangaHomeData />
+        </Suspense>
+      </div>
+    );
+  }
+
+  return (
+    <Suspense fallback={<AnimeHomeSkeleton />}>
+      <AnimeHomeData />
+    </Suspense>
   );
 }

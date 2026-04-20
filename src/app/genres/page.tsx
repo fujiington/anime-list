@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getGenres, getMangaGenres } from "@/lib/jikan";
+import { cachedGetGenres, cachedGetMangaGenres } from "@/lib/jikanCache";
 import { getSiteMode } from "@/lib/mode";
 
 export const revalidate = 86400;
@@ -27,7 +27,7 @@ export default async function GenresPage() {
   const mode = await getSiteMode();
   let genres: { mal_id: number; name: string; count: number }[] = [];
   try {
-    const data = await (mode === "manga" ? getMangaGenres() : getGenres());
+    const data = await (mode === "manga" ? cachedGetMangaGenres() : cachedGetGenres());
     genres = data.data
       .filter((g) => !EXCLUDED_GENRES.has(g.name))
       .sort((a, b) => b.count - a.count);

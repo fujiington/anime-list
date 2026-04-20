@@ -85,17 +85,25 @@ export default function MangaListButton({
       return;
     }
 
-    await supabase.from("manga_list").upsert({
-      user_id: user.id,
-      mal_id: malId,
-      title,
-      image_url: imageUrl,
-      score,
-      status,
-      user_rating: rating,
-      chapters_read: chaptersRead,
-      total_chapters: totalCh,
-    });
+    if (entry) {
+      await supabase
+        .from("manga_list")
+        .update({ status, user_rating: rating, chapters_read: chaptersRead, total_chapters: totalCh })
+        .eq("user_id", user.id)
+        .eq("mal_id", malId);
+    } else {
+      await supabase.from("manga_list").insert({
+        user_id: user.id,
+        mal_id: malId,
+        title,
+        image_url: imageUrl,
+        score,
+        status,
+        user_rating: rating,
+        chapters_read: chaptersRead,
+        total_chapters: totalCh,
+      });
+    }
 
     setEntry({ status, user_rating: rating, chapters_read: chaptersRead, total_chapters: totalCh });
     setSaving(false);

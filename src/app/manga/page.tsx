@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getTopManga, browseManga } from "@/lib/jikan";
+import { cachedGetTopManga, cachedBrowseManga } from "@/lib/jikanCache";
 import type { Manga } from "@/lib/jikan";
 
 export const revalidate = 3600;
@@ -89,9 +89,9 @@ function Section({
 
 export default async function MangaPage() {
   const [topRes, popularRes, manhwaRes] = await Promise.allSettled([
-    getTopManga(1),
-    browseManga({ orderBy: "popularity" }),
-    browseManga({ type: "manhwa", orderBy: "score" }),
+    cachedGetTopManga(1),
+    cachedBrowseManga({ orderBy: "popularity" }),
+    cachedBrowseManga({ type: "manhwa", orderBy: "score" }),
   ]);
 
   const top: Manga[] =

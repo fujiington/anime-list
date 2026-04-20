@@ -153,13 +153,17 @@ export async function getSeasonUpcoming(page = 1): Promise<AnimeSearchResponse> 
 export async function getGenres(): Promise<{ data: Genre[] }> {
   const res = await jikanFetch(`${BASE_URL}/genres/anime`, { next: { revalidate: 86400 } });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
-  return res.json();
+  const json: { data: Genre[] } = await res.json();
+  const seen = new Set<number>();
+  return { data: json.data.filter((g) => { if (seen.has(g.mal_id)) return false; seen.add(g.mal_id); return true; }) };
 }
 
 export async function getMangaGenres(): Promise<{ data: Genre[] }> {
   const res = await jikanFetch(`${BASE_URL}/genres/manga`, { next: { revalidate: 86400 } });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
-  return res.json();
+  const json: { data: Genre[] } = await res.json();
+  const seen = new Set<number>();
+  return { data: json.data.filter((g) => { if (seen.has(g.mal_id)) return false; seen.add(g.mal_id); return true; }) };
 }
 
 /**
@@ -333,4 +337,26 @@ export async function getTopManga(page = 1): Promise<MangaSearchResponse> {
   const res = await jikanFetch(`${BASE_URL}/top/manga?${params}`, { next: { revalidate: 3600 } });
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   return res.json();
+}
+
+export interface AnimeCharacter {
+  character: {
+    mal_id: number;
+    name: string;
+    images: { jpg: { image_url: string }; webp?: { image_url: string } };
+  };
+  role: string;
+}
+
+export async function getAnimeCharacters(malId: number): Promise<AnimeCharacter[]> {
+  const cacheKey = `chars:${malId}`;
+  const cached = _get<AnimeCharacter[]>(cacheKey);
+  if (cached) return cached;
+
+  const res = await fetch(`${BASE_URL}/anime/${malId}/characters`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const chars: AnimeCharacter[] = data.data ?? [];
+  _set(cacheKey, chars, 10 * 60_000);
+  return chars;
 }

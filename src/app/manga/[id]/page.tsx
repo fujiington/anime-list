@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMangaById } from "@/lib/jikan";
+import { cachedGetMangaById } from "@/lib/jikanCache";
 import { createClient } from "@/lib/supabase/server";
 import MangaListButton, { type MangaListEntry } from "@/components/MangaListButton";
 
@@ -16,7 +16,7 @@ export default async function MangaDetailPage({ params }: Props) {
 
   let manga;
   try {
-    const res = await getMangaById(mangaId);
+    const res = await cachedGetMangaById(mangaId);
     manga = res.data;
   } catch {
     notFound();

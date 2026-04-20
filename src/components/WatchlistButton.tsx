@@ -83,17 +83,20 @@ export default function WatchlistButton({
       return;
     }
 
-    await supabase.from("watchlist").upsert({
-      user_id: user.id,
-      mal_id: malId,
-      title,
-      image_url: imageUrl,
-      score,
-      status,
-      user_rating: rating,
-      episodes_watched: epWatched,
-      total_episodes: totalEpisodes,
-    });
+    await supabase.from("watchlist").upsert(
+      {
+        user_id: user.id,
+        mal_id: malId,
+        title,
+        image_url: imageUrl,
+        score,
+        status,
+        user_rating: rating,
+        episodes_watched: epWatched,
+        total_episodes: totalEpisodes,
+      },
+      { onConflict: "user_id,mal_id" }
+    );
 
     setEntry({ status, user_rating: rating, episodes_watched: epWatched, total_episodes: totalEpisodes });
     setSaving(false);

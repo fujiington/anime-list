@@ -21,7 +21,10 @@ export default async function WatchlistPage() {
     .eq("user_id", user.id)
     .order("added_at", { ascending: false });
 
-  const watchlistItems = (items ?? []) as WatchlistItem[];
+  const watchlistItems = (items ?? []).map((item) => ({
+    ...item,
+    episodes_watched: item.episodes_watched ?? 0,
+  })) as WatchlistItem[];
 
   return (
     <div className="space-y-6">
@@ -34,12 +37,20 @@ export default async function WatchlistPage() {
               : `${watchlistItems.length} anime tracked`}
           </p>
         </div>
-        <Link
-          href="/profile"
-          className="text-zinc-500 hover:text-white text-sm transition-colors"
-        >
-          Profile →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/ratings"
+            className="text-zinc-500 hover:text-white text-sm transition-colors"
+          >
+            My Ratings →
+          </Link>
+          <Link
+            href="/profile"
+            className="text-zinc-500 hover:text-white text-sm transition-colors"
+          >
+            Profile →
+          </Link>
+        </div>
       </div>
 
       <WatchlistClient items={watchlistItems} />

@@ -19,9 +19,12 @@ export default async function MangaListPage() {
       "mal_id, title, image_url, score, status, user_rating, chapters_read, total_chapters"
     )
     .eq("user_id", user.id)
-    .order("added_at", { ascending: false });
+    .order("mal_id", { ascending: false });
 
-  const mangaListItems = (items ?? []) as MangaListItem[];
+  const mangaListItems = (items ?? []).map((item) => ({
+    ...item,
+    chapters_read: item.chapters_read ?? 0,
+  })) as MangaListItem[];
 
   return (
     <div className="space-y-6">

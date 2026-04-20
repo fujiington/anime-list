@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -16,7 +17,7 @@ function avatarColor(id: string) {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-export default function UserMenu({ user }: { user: User | null }) {
+export default function UserMenu({ user, avatarUrl }: { user: User | null; avatarUrl?: string | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -64,10 +65,14 @@ export default function UserMenu({ user }: { user: User | null }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`${avatarBg} w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white hover:ring-2 hover:ring-red-800 hover:ring-offset-1 hover:ring-offset-black transition-all`}
+        className={`${avatarUrl ? "" : avatarBg} w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-sm font-bold text-white hover:ring-2 hover:ring-red-800 hover:ring-offset-1 hover:ring-offset-black transition-all`}
         aria-label="Account menu"
       >
-        {initial}
+        {avatarUrl ? (
+          <Image src={avatarUrl} alt="avatar" width={32} height={32} className="w-full h-full object-cover" unoptimized />
+        ) : (
+          initial
+        )}
       </button>
 
       {open && (
@@ -113,6 +118,16 @@ export default function UserMenu({ user }: { user: User | null }) {
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
               My Reading List
+            </Link>
+            <Link
+              href="/ratings"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              My Ratings
             </Link>
           </div>
 
