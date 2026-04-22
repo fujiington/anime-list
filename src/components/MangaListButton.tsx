@@ -272,7 +272,7 @@ export default function MangaListButton({
                     </span>
                     {totalCh && (
                       <button
-                        onClick={() => setChaptersRead(totalCh)}
+                        onClick={() => { setChaptersRead(totalCh); setStatus("completed"); }}
                         className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors ml-auto"
                       >
                         All

@@ -360,3 +360,45 @@ export async function getAnimeCharacters(malId: number): Promise<AnimeCharacter[
   _set(cacheKey, chars, 10 * 60_000);
   return chars;
 }
+
+// ─── Recommendations ─────────────────────────────────────────────────────────
+
+export interface RecommendationEntry {
+  mal_id: number;
+  title: string;
+  images: AnimeImage;
+}
+
+export async function getAnimeRecommendations(malId: number): Promise<RecommendationEntry[]> {
+  const cacheKey = `anime:recs:${malId}`;
+  const cached = _get<RecommendationEntry[]>(cacheKey);
+  if (cached) return cached;
+
+  const res = await jikanFetch(`${BASE_URL}/anime/${malId}/recommendations`, {
+    next: { revalidate: 86400 },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const recs: RecommendationEntry[] = (data.data ?? [])
+    .slice(0, 15)
+    .map((r: { entry: RecommendationEntry }) => r.entry);
+  _set(cacheKey, recs, 60 * 60_000);
+  return recs;
+}
+
+export async function getMangaRecommendations(malId: number): Promise<RecommendationEntry[]> {
+  const cacheKey = `manga:recs:${malId}`;
+  const cached = _get<RecommendationEntry[]>(cacheKey);
+  if (cached) return cached;
+
+  const res = await jikanFetch(`${BASE_URL}/manga/${malId}/recommendations`, {
+    next: { revalidate: 86400 },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const recs: RecommendationEntry[] = (data.data ?? [])
+    .slice(0, 15)
+    .map((r: { entry: RecommendationEntry }) => r.entry);
+  _set(cacheKey, recs, 60 * 60_000);
+  return recs;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
@@ -42,6 +42,7 @@ export default function MediaListClient({
   renderEditButton,
 }: Props) {
   const [activeTab, setActiveTab] = useState("all");
+  const [sortBy, setSortBy] = useState<"default" | "title" | "rating" | "progress">("default");
 
   const counts: Record<string, number> = Object.fromEntries(
     tabs.map((t) => [
@@ -50,8 +51,16 @@ export default function MediaListClient({
     ])
   );
 
-  const filtered =
+  const tabFiltered =
     activeTab === "all" ? items : items.filter((i) => i.status === activeTab);
+
+  const filtered = useMemo(() => {
+    const arr = [...tabFiltered];
+    if (sortBy === "title") arr.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === "rating") arr.sort((a, b) => (b.user_rating ?? 0) - (a.user_rating ?? 0));
+    else if (sortBy === "progress") arr.sort((a, b) => b.progress - a.progress);
+    return arr;
+  }, [tabFiltered, sortBy]);
 
   if (items.length === 0) {
     return (
@@ -85,33 +94,45 @@ export default function MediaListClient({
 
   return (
     <div className="space-y-4">
-      {/* Tabs */}
-      <div
-        className="flex gap-1.5 overflow-x-auto pb-1"
-        style={{ scrollbarWidth: "none" }}
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full transition-all ${
-              activeTab === tab.key
-                ? "bg-red-900 text-white"
-                : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700"
-            }`}
-          >
-            {tab.label}
-            {counts[tab.key] > 0 && (
-              <span
-                className={`text-[10px] font-semibold min-w-[16px] text-center ${
-                  activeTab === tab.key ? "opacity-70" : "text-zinc-600"
-                }`}
-              >
-                {counts[tab.key]}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Sort + Tabs row */}
+      <div className="flex items-center gap-2">
+        <div
+          className="flex gap-1.5 overflow-x-auto pb-1 flex-1"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full transition-all ${
+                activeTab === tab.key
+                  ? "bg-red-900 text-white"
+                  : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700"
+              }`}
+            >
+              {tab.label}
+              {counts[tab.key] > 0 && (
+                <span
+                  className={`text-[10px] font-semibold min-w-[16px] text-center ${
+                    activeTab === tab.key ? "opacity-70" : "text-zinc-600"
+                  }`}
+                >
+                  {counts[tab.key]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          className="flex-shrink-0 bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-zinc-600 cursor-pointer"
+        >
+          <option value="default">Default</option>
+          <option value="title">A–Z</option>
+          <option value="rating">Rating</option>
+          <option value="progress">Progress</option>
+        </select>
       </div>
 
       {/* List */}

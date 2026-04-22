@@ -16,9 +16,12 @@ import {
   getMangaGenres,
   getAnimeById,
   getMangaById,
+  browseAnime,
   browseManga,
+  getAnimeRecommendations,
+  getMangaRecommendations,
 } from "./jikan";
-import type { MangaBrowseOptions } from "./jikan";
+import type { BrowseOptions, MangaBrowseOptions } from "./jikan";
 
 // Seasonal anime — revalidate every hour
 export const cachedGetSeasonNow = unstable_cache(
@@ -38,6 +41,13 @@ export const cachedGetTopManga = unstable_cache(
   async (page: number) => getTopManga(page),
   ["jikan-top-manga"],
   { revalidate: 3600, tags: ["manga"] }
+);
+
+// Browse anime — revalidate every hour
+export const cachedBrowseAnime = unstable_cache(
+  async (opts: BrowseOptions) => browseAnime(opts),
+  ["jikan-browse-anime"],
+  { revalidate: 3600, tags: ["anime"] }
 );
 
 // Browse manga — revalidate every 10 minutes (used on home page for rows)
@@ -70,5 +80,18 @@ export const cachedGetAnimeById = unstable_cache(
 export const cachedGetMangaById = unstable_cache(
   async (id: number) => getMangaById(id),
   ["jikan-manga-by-id"],
+  { revalidate: 86400, tags: ["manga-detail"] }
+);
+
+// Recommendations — revalidate once a day
+export const cachedGetAnimeRecommendations = unstable_cache(
+  async (id: number) => getAnimeRecommendations(id),
+  ["jikan-anime-recommendations"],
+  { revalidate: 86400, tags: ["anime-detail"] }
+);
+
+export const cachedGetMangaRecommendations = unstable_cache(
+  async (id: number) => getMangaRecommendations(id),
+  ["jikan-manga-recommendations"],
   { revalidate: 86400, tags: ["manga-detail"] }
 );

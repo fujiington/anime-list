@@ -266,7 +266,7 @@ export default function WatchlistButton({
                     </span>
                     {totalEpisodes && (
                       <button
-                        onClick={() => setEpWatched(totalEpisodes)}
+                        onClick={() => { setEpWatched(totalEpisodes); setStatus("completed"); }}
                         className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors ml-auto"
                       >
                         All

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cachedGetAnimeById } from "@/lib/jikanCache";
+import { cachedGetAnimeById, cachedGetAnimeRecommendations } from "@/lib/jikanCache";
 import { createClient } from "@/lib/supabase/server";
 import WatchlistButton, { type WatchlistEntry } from "@/components/WatchlistButton";
 
@@ -21,6 +21,8 @@ export default async function AnimeDetailPage({ params }: Props) {
   } catch {
     notFound();
   }
+
+  const recommendations = await cachedGetAnimeRecommendations(animeId).catch(() => []);
 
   const title = anime.title_english || anime.title;
   const imageUrl = anime.images.webp?.large_image_url || anime.images.jpg.large_image_url;
@@ -153,6 +155,36 @@ export default async function AnimeDetailPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {/* Recommendations */}
+      {recommendations.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-white font-semibold text-base tracking-wide">Recommended</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+            {recommendations.map((rec) => (
+              <Link
+                key={rec.mal_id}
+                href={`/anime/${rec.mal_id}`}
+                className="flex-none w-28 group"
+              >
+                <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-zinc-800 border border-zinc-800 group-hover:border-red-900 transition-colors">
+                  <Image
+                    src={rec.images.webp?.large_image_url || rec.images.jpg.large_image_url}
+                    alt={rec.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    unoptimized
+                    sizes="112px"
+                  />
+                </div>
+                <p className="text-zinc-400 text-xs mt-1.5 line-clamp-2 group-hover:text-white transition-colors">
+                  {rec.title}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import MediaListClient, { type MediaItem } from "@/components/MediaListClient";
 import WatchlistButton, { STATUS_CONFIG } from "@/components/WatchlistButton";
 import type { WatchlistStatus, WatchlistEntry } from "@/components/WatchlistButton";

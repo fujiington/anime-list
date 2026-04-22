@@ -39,6 +39,12 @@ export default async function WatchlistPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
+            href="/stats"
+            className="text-zinc-500 hover:text-white text-sm transition-colors"
+          >
+            Stats →
+          </Link>
+          <Link
             href="/ratings"
             className="text-zinc-500 hover:text-white text-sm transition-colors"
           >
